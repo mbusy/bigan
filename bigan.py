@@ -62,6 +62,21 @@ class BaseModule(nn.Module):
     def forward(self, input):
         raise NotImplementedError
 
+    def initialize_weights(self):
+        """
+        Initialization of the weights
+        """
+        for module in self.modules():
+            if isinstance(module, nn.Conv2d):
+                module.weight.data.normal_(0, 0.02)
+                module.bias.data.zero_()
+            elif isinstance(m, nn.ConvTranspose2d):
+                module.weight.data.normal_(0, 0.02)
+                module.bias.data.zero_()
+            elif isinstance(m, nn.Linear):
+                module.weight.data.normal_(0, 0.02)
+                module.bias.data.zero_()
+
 
 class Generator(BaseModule):
     """
@@ -97,9 +112,12 @@ class Generator(BaseModule):
             nn.BatchNorm2d(32),
             nn.LeakyReLU(self.slope, inplace=True),
             # state dim: 32 x 28 x 28
-            nn.ConvTranspose2d(32, self.channels, 1, stride=1, bias=True), # Conv ?
+            # Conv instead ?
+            nn.ConvTranspose2d(32, self.channels, 1, stride=1, bias=True),
             # output dim: channels x 28 x 28
             nn.Sigmoid())
+
+        self.initialize_weights()
 
         def forward(self, input):
             return self.generator(input)
@@ -148,6 +166,8 @@ class Encoder(BaseModule):
             # state dim: 512 x 1 x 1
             # output dim: opt.z_dim x 1 x 1
             nn.Conv2d(512, z_dim, 1, stride=1, bias=True))
+
+        self.initialize_weights()
 
     def forward(self, input):
         return self.encoder(input)
@@ -202,6 +222,8 @@ class Discriminator(BaseModule):
             torch.nn.Linear(self.h_dim, 1),
             torch.nn.Sigmoid())
 
+        self.initialize_weights()
+
     def forward(self, input_x, input_z):
         output_x = self.discriminator_infer_x(input_x)
         output_z = self.discriminator_infer_z(input_z)
@@ -242,3 +264,19 @@ class BiGAN(object):
             width=width,
             height=height,
             z_dim=z_dim).to(device)
+
+    def train(self):
+        """
+        Call the train method on each submodule
+        """
+        self.generator.train()
+        self.encoder.train()
+        self.discriminator.train()
+
+    def eval(self):
+        """
+        Call the eval method on each submodule
+        """
+        self.generator.eval()
+        self.encoder.eval()
+        self.discriminator.eval()
