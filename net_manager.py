@@ -65,16 +65,23 @@ class NetManager:
         else:
             self.writer = SummaryWriter("logs/" + board_name)
 
-    def load_net(self, network_state_name):
+    def load_net(self, path):
         """
-        Loads a model
+        Loads a bigan. The manager will look for the files bigan_generator.pth,
+        bigan_encoder.pth and bigan_discriminator.pth at the specified path
         """
-        network_state_dict = torch.load(network_state_name)
-        self.model.load_state_dict(network_state_dict)
+        generator_state_dict = torch.load(path + "/bigan_generator.pth")
+        encoder_state_dict = torch.load(path + "/bigan_encoder.pth")
+        discriminator_state_dict = torch.load(
+            path + "/bigan_discriminator.pth")
+
+        self.bigan.generator.load_state_dict(generator_state_dict)
+        self.bigan.encoder.load_state_dict(encoder_state_dict)
+        self.bigan.discriminator.load_state_dict(discriminator_state_dict)
 
     def save_net(self, path):
         """
-        Saves the net currently loaded in the manager, at the specified path
+        Saves the bigan currently loaded in the manager, at the specified path
         """
         torch.save(
             self.bigan.generator.state_dict(),
@@ -124,18 +131,28 @@ class NetManager:
         if self.train_loader is None:
             return
 
-        train_loss = 0
+        train_loss_g = 0
+        train_loss_d = 0
         progress_bar = tqdm(
             total=epochs*len(self.train_loader),
-            desc="VAE training",
+            desc="BiGAN training",
             leave=False)
 
         for epoch in range(epochs):
-            self.model.train()
+            self.bigan.train()
 
             for batch_idx, (data, target) in enumerate(self.train_loader):
-                data = data.to(self.device)
-                self.optimizer.zero_grad()
+                z = torch.rand(
+                    self.data.size(0),
+                    self.bigan.generator.get_z_dim()).to(device)
+
+                x = data.to(self.device)
+
+                self.optimizer_g.zero_grad()
+                self.optimizer_d.zero_grad()
+
+                x_hat = self.bigan.generator(z)
+                z_hat = self.bigan.encoder(x)
                 recon_batch, mu, logvar = self.model(data)
                 loss = self.loss_function(
                     recon_batch,
