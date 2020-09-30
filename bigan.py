@@ -70,10 +70,10 @@ class BaseModule(nn.Module):
             if isinstance(module, nn.Conv2d):
                 module.weight.data.normal_(0, 0.02)
                 module.bias.data.zero_()
-            elif isinstance(m, nn.ConvTranspose2d):
+            elif isinstance(module, nn.ConvTranspose2d):
                 module.weight.data.normal_(0, 0.02)
                 module.bias.data.zero_()
-            elif isinstance(m, nn.Linear):
+            elif isinstance(module, nn.Linear):
                 module.weight.data.normal_(0, 0.02)
                 module.bias.data.zero_()
 
@@ -94,7 +94,7 @@ class Generator(BaseModule):
         """
         super(Generator, self).__init__(channels, width, height, z_dim)
         self.generator = nn.Sequential(
-            Unsqueeze()
+            Unsqueeze(),
             # input dim: z_dim x 1 x 1
             nn.ConvTranspose2d(self.z_dim, 256, 4, stride=1, bias=True),
             nn.BatchNorm2d(256),
@@ -119,8 +119,8 @@ class Generator(BaseModule):
 
         self.initialize_weights()
 
-        def forward(self, input):
-            return self.generator(input)
+    def forward(self, input):
+        return self.generator(input)
 
 
 class Encoder(BaseModule):
@@ -139,7 +139,7 @@ class Encoder(BaseModule):
         """
         super(Encoder, self).__init__(channels, width, height, z_dim)
         self.encoder = nn.Sequential(
-            # input dim: channels x 32 x 32
+            # input dim: channels x 28 x 28
             nn.Conv2d(self.channels, 32, 3, stride=1, padding=1, bias=True),
             nn.BatchNorm2d(32),
             nn.LeakyReLU(self.slope, inplace=True),
@@ -165,7 +165,8 @@ class Encoder(BaseModule):
             nn.LeakyReLU(self.slope, inplace=True),
             # state dim: 512 x 1 x 1
             # output dim: opt.z_dim x 1 x 1
-            nn.Conv2d(512, z_dim, 1, stride=1, bias=True))
+            nn.Conv2d(512, z_dim, 1, stride=1, bias=True),
+            Flatten())
 
         self.initialize_weights()
 
@@ -189,8 +190,13 @@ class Discriminator(BaseModule):
         """
         super(Discriminator, self).__init__(channels, width, height, z_dim)
         self.discriminator_infer_x = nn.Sequential(
+            # Add following lines ? If so change the stride of the next layer
+            # nn.Conv2d(self.channels, 32, 3, stride=1, padding=1, bias=True),
+            # nn.BatchNorm2d(32),
+            # nn.LeakyReLU(self.slope, inplace=True),
+
             # state dim: channels 28 x 28
-            nn.Conv2d(self.channels, 64, 4, stride=1, bias=True),
+            nn.Conv2d(self.channels, 64, 4, stride=2, bias=True),  # stride 1
             nn.BatchNorm2d(64),
             nn.LeakyReLU(self.slope, inplace=True),
             nn.Dropout2d(p=self.dropout),
@@ -226,7 +232,8 @@ class Discriminator(BaseModule):
 
     def forward(self, input_x, input_z):
         output_x = self.discriminator_infer_x(input_x)
-        output_z = self.discriminator_infer_z(input_z)
+        output_z = input_z
+        # output_z = self.discriminator_infer_z(input_z)
         return self.discriminator_infer_joint(torch.cat(
             [output_x, output_z],
             dim=1))
@@ -236,12 +243,11 @@ class BiGAN(object):
     """
     Meta class defining a Bidirectional Generative Adversarial Network
     """
-    def __init__(self, device, channels=1, width=28, height=28, z_dim=50):
+    def __init__(self, channels=1, width=28, height=28, z_dim=50):
         """
         Constructor
 
         Parameters:
-            device - "cuda" or "cpu", device on which the network is deployed
             channels - The number of channels in the image
             width - The width of the image in pixels
             height - The height of the image in pixels
@@ -251,19 +257,32 @@ class BiGAN(object):
             channels=channels,
             width=width,
             height=height,
-            z_dim=z_dim).to(device)
+            z_dim=z_dim)
 
         self.encoder = Encoder(
             channels=channels,
             width=width,
             height=height,
-            z_dim=z_dim).to(device)
+            z_dim=z_dim)
 
         self.discriminator = Discriminator(
             channels=channels,
             width=width,
             height=height,
-            z_dim=z_dim).to(device)
+            z_dim=z_dim)
+
+    def to(self, device):
+        """
+        Will deploy the BiGAN networks to a specific device
+
+        Parameters:
+            device - "cuda" or "cpu", device on which the network is deployed
+        """
+        self.generator = self.generator.to(device)
+        self.encoder = self.encoder.to(device)
+        self.discriminator = self.discriminator.to(device)
+
+        return self
 
     def train(self):
         """
