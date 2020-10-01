@@ -17,4 +17,4 @@ python3 main.py --batch-size 64 --epochs 40 --seed 1 --log-interval 10
 python3 main.py --weights weights
 ```
 
-Note, you should create the following folders at the root of the repo: `logs` and `results`
+Note: you should create the following folders at the root of the repo: `logs` and `results`.
