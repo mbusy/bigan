@@ -124,7 +124,7 @@ class NetManager:
 
         return loss_g, loss_d
 
-    def train(self, epochs, log_interval=10, use_bce=True):
+    def train(self, epochs, log_interval=10):
         if self.train_loader is None:
             return
 
@@ -187,7 +187,7 @@ class NetManager:
 
         self.writer.close()
 
-    def epoch_test(self, epoch, use_bce=True):
+    def epoch_test(self, epoch):
         if self.test_loader is None:
             return
 
@@ -355,9 +355,10 @@ class NetManager:
         if self.test_loader is None:
             return
 
+        z_dim = self.bigan.encoder.get_z_dim()
         z_array = np.zeros((
             len(self.test_loader.dataset),
-            self.bigan.encoder.get_z_dim()))
+            z_dim))
 
         targets = np.zeros(len(self.test_loader.dataset))
         idx = 0
@@ -379,7 +380,7 @@ class NetManager:
 
         fig = plt.figure(figsize=(12, 10))
 
-        if self.bigan.encoder.get_z_dim() > dimensions:
+        if z_dim > dimensions:
             z_array = TSNE(n_components=dimensions).fit_transform(z_array)
 
         if z_array.shape[1] == 2:
@@ -404,8 +405,14 @@ class NetManager:
         else:
             print("The dimensions param should be set to 2 or 3")
             return
+        
+        if z_dim > dimensions:
+            title = "T-SNE visualization of the BiGAN latent space. "
+            title += "Original dimension: " + str(z_dim)
+        else:
+            title = "Latent space of the BiGAN"
 
-        plt.title("Latent space of the BiGAN")
+        plt.title(title)
 
         if not os.path.exists("results"):
             os.mkdir("results")
