@@ -380,15 +380,15 @@ class NetManager:
         fig = plt.figure(figsize=(12, 10))
 
         if self.bigan.encoder.get_z_dim() > dimensions:
-            z_array = TSNE(n_components=2).fit_transform(z_array)
+            z_array = TSNE(n_components=dimensions).fit_transform(z_array)
 
-        if dimensions == 2:
+        if z_array.shape[1] == 2:
             plt.scatter(z_array[:, 0], z_array[:, 1], c=targets)
             plt.xlabel("z[0]")
             plt.ylabel("z[1]")
             plt.colorbar()
 
-        elif dimensions == 3:
+        elif z_array.shape[1] == 3:
             ax = fig.add_subplot(111, projection='3d')
             cloud = ax.scatter(
                 z_array[:, 0],
